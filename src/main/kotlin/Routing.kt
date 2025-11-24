@@ -7,7 +7,11 @@ import io.ktor.server.routing.*
 fun Application.configureRouting() {
     routing {
         get("/") {
-            call.respondText("Hello World!")
+            call.respondText("Velkommen til Kursportalen!")
+        }
+        get("/kursportalen") {
+            val text = "Bitcoin price: 10000"
+            call.respondText(text)
         }
     }
 }
