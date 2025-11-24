@@ -1,4 +1,4 @@
-package com.example
+package kursportalen-backend
 
 import io.ktor.server.application.*
 
