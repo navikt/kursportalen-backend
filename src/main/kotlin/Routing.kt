@@ -9,7 +9,7 @@ fun Application.configureRouting() {
         get("/") {
             call.respondText("Velkommen til Kursportalen!")
         }
-        get("/kursportalen") {
+        get("/charts") {
             val text = "Bitcoin price: 10000"
             call.respondText(text)
         }
