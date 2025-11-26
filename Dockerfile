@@ -5,4 +5,4 @@ COPY build/install/*/lib /lib
 ENV TZ="Europe/Oslo"
 ENV JDK_JAVA_OPTIONS="-XX:MaxRAMPercentage=75"
 
-ENTRYPOINT ["java", "-cp", "/lib/*", "no.nav.kursportalen.backend.ApplicationKt"]
+ENTRYPOINT ["java", "-cp", "/lib/*", "com.example.ApplicationKt"]

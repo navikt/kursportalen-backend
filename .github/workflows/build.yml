@@ -25,5 +25,5 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build project
-        run: ./gradlew build --stacktrace
+        run: ./gradlew installDist --stacktrace
 
