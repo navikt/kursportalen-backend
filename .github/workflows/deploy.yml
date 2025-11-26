@@ -1,0 +1,51 @@
+name: Deploy Application
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build application
+    uses: ./.github/workflows/build.yml
+
+  build-push-image:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Push Docker Image to GAR
+        uses: nais/docker-build-push@v0
+        id: docker-build-push
+        with:
+          team: laerlinger
+          dockerfile: ./Dockerfile
+          docker_context: .
+          image_suffix: kursportalen-backend
+
+    outputs:
+      image: ${{ steps.docker-build-push.outputs.image }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-push-image
+    permissions:
+      contents: read
+      id-token: write
+      deployments: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to NAIS
+        uses: nais/deploy/actions/deploy@v2
+        env:
+          CLUSTER: dev-gcp
+          RESOURCE: .nais/naiserator-dev.yaml
+          IMAGE: ${{ needs.build-push-image.outputs.image }}
