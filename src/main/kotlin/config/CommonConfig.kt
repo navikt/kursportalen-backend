@@ -32,7 +32,7 @@ fun Routing.internalNaisRoutes(
     route("internal") {
         get("isAlive") {
             when (alivenessCheck()) {
-                true -> call.respondText { "I'm alive :)" }
+                true -> call.respondText("I'm alive :)")
                 else ->
                     call.respondText(
                         text = "I'm dead x_x",
@@ -42,7 +42,7 @@ fun Routing.internalNaisRoutes(
         }
         get("isReady") {
             when (readynessCheck()) {
-                true -> call.respondText { "I'm ready! :)" }
+                true -> call.respondText("I'm ready! :)")
                 else ->
                     call.respondText(
                         text = "Wait! I'm not ready yet! :O",
