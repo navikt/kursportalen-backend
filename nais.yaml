@@ -1,0 +1,44 @@
+apiVersion: "nais.io/v1alpha1"
+kind: "Application"
+metadata:
+  name: kursportalen-backend
+  namespace: laerlinger
+  labels:
+    team: laerlinger
+spec:
+  image: "{{ image }}"
+  port: 8080
+  replicas:
+    min: 1
+    max: 2
+    cpuThresholdPercentage: 75
+  liveness:
+    path: /internal/isAlive
+    initialDelay: 5
+    timeout: 5
+    periodSeconds: 5
+    failureThreshold: 30
+  readiness:
+    path: /internal/isReady
+    initialDelay: 5
+    periodSeconds: 5
+    timeout: 5
+  resources:
+    limits:
+      memory: 2048Mi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  ingresses:
+    - https://kursportalen-backend.intern.dev.nav.no
+  prometheus:
+    enabled: true
+    path: /internal/metrics
+  observability:
+    autoInstrumentation:
+      enabled: true
+      runtime: java
+  accessPolicy: {}
+  env:
+    - name: ENV
+      value: "prod"
