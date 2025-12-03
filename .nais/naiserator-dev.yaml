@@ -38,7 +38,12 @@ spec:
     autoInstrumentation:
       enabled: true
       runtime: java
-  accessPolicy: {}
+  accessPolicy:
+    outbound:
+      rules:
+        - application: kursportalen-frontend
+          namespace: laerlinger
+          cluster: dev-gcp
   env:
     - name: ENV
       value: "prod"
