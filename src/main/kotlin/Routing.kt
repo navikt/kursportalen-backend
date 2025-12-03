@@ -1,17 +1,20 @@
 package com.example
 
+import com.example.service.BtcPriceService
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
 fun Application.configureRouting() {
+    val btcPriceService = BtcPriceService()
+
     routing {
         get("/") {
             call.respondText("Velkommen til Kursportalen!")
         }
-        get("/charts") {
-            val text = "Bitcoin price: 10000"
-            call.respondText(text)
+        get("/bitcoinprice") {
+            val price = btcPriceService.getBtcPrice()
+            call.respondText(price)
         }
     }
 }
