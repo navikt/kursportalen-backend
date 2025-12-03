@@ -5,7 +5,7 @@ class BtcPriceService {
     fun getBtcPrice(): String {
         // In a real application, this method would fetch the current Bitcoin price from an API.
         // Here, we return a hardcoded value for demonstration purposes.
-        return "10000"
+        return "67 678 869"
     }
 
 }
