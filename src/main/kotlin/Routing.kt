@@ -14,7 +14,7 @@ fun Application.configureRouting() {
         }
         get("/bitcoinprice") {
             val price = btcPriceService.getBtcPrice()
-            call.respondText(price)
+            call.respond(mapOf("price" to price))
         }
     }
 }
