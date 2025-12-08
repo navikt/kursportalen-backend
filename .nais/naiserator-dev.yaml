@@ -41,7 +41,7 @@ spec:
   accessPolicy:
     inbound:
       rules:
-        - application: kursportalen-frontend
+        - application: kursportalen
           namespace: laerlinger
           cluster: dev-gcp
   env:
