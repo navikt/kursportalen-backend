@@ -9,9 +9,12 @@ fun Application.configureRouting() {
     val btcPriceService = BtcPriceService()
 
     routing {
+        get("/") {
+            call.respondText("Velkommen til Kursportalen!")
+        }
         get("/bitcoinprice") {
             val price = btcPriceService.getBtcPrice()
-            call.respond(mapOf("price" to price))
+            call.respondText(price)
         }
     }
 }
