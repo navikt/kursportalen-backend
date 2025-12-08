@@ -39,7 +39,7 @@ spec:
       enabled: true
       runtime: java
   accessPolicy:
-    outbound:
+    inbound:
       rules:
         - application: kursportalen-frontend
           namespace: laerlinger
