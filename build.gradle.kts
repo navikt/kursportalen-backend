@@ -18,6 +18,8 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.logback.classic)
     implementation("io.ktor:ktor-server-cors-jvm")
+    implementation("io.ktor:ktor-serialization-kotlinx-json-jvm")
+    implementation("io.ktor:ktor-server-content-negotiation-jvm")
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.config.yaml)
     testImplementation(libs.ktor.server.test.host)
