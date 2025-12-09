@@ -7,6 +7,7 @@ import io.ktor.server.plugins.cors.routing.*
 fun Application.configureCors() {
     install(CORS) {
         allowHost("localhost:5173", schemes = listOf("http"))
+        allowHost("kursportalen.ansatt.dev.nav.no", schemes = listOf("https"))
         allowHost("kursportalen.intern.dev.nav.no", schemes = listOf("https"))
 
         allowMethod(HttpMethod.Get)
