@@ -1,5 +1,5 @@
-apiVersion: "nais.io/v1alpha1"
-kind: "Application"
+apiVersion: nais.io/v1alpha1
+kind: Application
 metadata:
   name: kursportalen-backend
   namespace: laerlinger
@@ -46,4 +46,4 @@ spec:
           cluster: dev-gcp
   env:
     - name: ENV
-      value: "prod"
+      value: prod
