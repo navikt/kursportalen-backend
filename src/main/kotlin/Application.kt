@@ -3,6 +3,7 @@ package com.example
 import com.example.config.ApplicationState
 import com.example.config.commonConfig
 import com.example.config.internalNaisRoutes
+import com.example.config.configureCors
 import io.ktor.server.application.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -16,6 +17,7 @@ fun Application.module() {
     val applicationState = ApplicationState()
 
     commonConfig()
+    configureCors()
     routing {
         internalNaisRoutes(applicationState)
         configureRouting()
