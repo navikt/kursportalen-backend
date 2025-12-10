@@ -19,7 +19,7 @@ fun Application.commonConfig() {
                 ignoreUnknownKeys = true
                 encodeDefaults = true
                 explicitNulls = false
-            },
+            }
         )
     }
 }
@@ -27,27 +27,27 @@ fun Application.commonConfig() {
 fun Routing.internalNaisRoutes(
     applicationState: ApplicationState,
     readynessCheck: () -> Boolean = { applicationState.ready },
-    alivenessCheck: () -> Boolean = { applicationState.alive },
+    alivenessCheck: () -> Boolean = { applicationState.alive }
 ) {
     route("internal") {
         get("isAlive") {
-            when (alivenessCheck()) {
-                true -> call.respondText("I'm alive :)")
-                else ->
-                    call.respondText(
-                        text = "I'm dead x_x",
-                        status = HttpStatusCode.InternalServerError,
-                    )
+            if (alivenessCheck()) {
+                call.respondText("I'm alive :)")
+            } else {
+                call.respondText(
+                    text = "I'm dead x_x",
+                    status = HttpStatusCode.InternalServerError
+                )
             }
         }
         get("isReady") {
-            when (readynessCheck()) {
-                true -> call.respondText("I'm ready! :)")
-                else ->
-                    call.respondText(
-                        text = "Wait! I'm not ready yet! :O",
-                        status = HttpStatusCode.InternalServerError,
-                    )
+            if (readynessCheck()) {
+                call.respondText("I'm ready! :)")
+            } else {
+                call.respondText(
+                    text = "Wait! I'm not ready yet! :O",
+                    status = HttpStatusCode.InternalServerError
+                )
             }
         }
     }

@@ -4,7 +4,6 @@ import com.example.config.ApplicationState
 import com.example.config.commonConfig
 import com.example.config.internalNaisRoutes
 import com.example.config.configureCors
-import com.example.config.configureSerialization
 import io.ktor.server.application.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -19,7 +18,6 @@ fun Application.module() {
 
     commonConfig()
     configureCors()
-    configureSerialization()
 
     routing {
         internalNaisRoutes(applicationState)
