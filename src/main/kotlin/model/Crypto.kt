@@ -3,4 +3,7 @@ package com.example.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Crypto(val pris: String)
+data class Crypto(
+    val symbol: String,
+    val last: String
+)
