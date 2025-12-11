@@ -43,7 +43,6 @@ spec:
       rules:
         - application: kursportalen
           namespace: laerlinger
-          cluster: dev-gcp
   env:
     - name: ENV
       value: prod
