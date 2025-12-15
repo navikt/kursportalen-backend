@@ -6,7 +6,7 @@ metadata:
   labels:
     team: laerlinger
 spec:
-  image: "{{ image }}"
+  image: "{{ IMAGE }}"
   port: 8080
   replicas:
     min: 1
@@ -21,7 +21,6 @@ spec:
   readiness:
     path: /internal/isReady
     initialDelay: 5
-    periodSeconds: 5
     timeout: 5
   resources:
     limits:
@@ -47,3 +46,5 @@ spec:
   env:
     - name: ENV
       value: prod
+    - name: FREECRYPTO_API_KEY
+      value: "{{ FREECRYPTO_API_KEY }}"
