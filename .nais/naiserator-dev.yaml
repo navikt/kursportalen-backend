@@ -43,6 +43,9 @@ spec:
         - application: kursportalen
           namespace: laerlinger
           cluster: dev-gcp
+    outbound:
+      external:
+        - host: pro-api.coinmarketcap.com
   env:
     - name: ENV
       value: prod
