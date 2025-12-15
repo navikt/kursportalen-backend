@@ -5,5 +5,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Crypto(
     val symbol: String,
-    val last: String
+    val last: Double
 )

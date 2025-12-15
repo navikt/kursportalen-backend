@@ -46,5 +46,5 @@ spec:
   env:
     - name: ENV
       value: prod
-    - name: FREECRYPTO_API_KEY
-      value: "{{ FREECRYPTO_API_KEY }}"
+    - name: COINMARKETCAP_APIKEY
+      value: "{{ COINMARKETCAP_APIKEY }}"
