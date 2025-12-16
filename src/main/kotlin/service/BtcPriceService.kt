@@ -47,8 +47,7 @@ class BtcPriceService {
         }
 
         val response: ApiResponse =
-            client.get("https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest") {
-                url { parameters.append("symbol", "BTC") }
+            client.get("https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=BTC") {
                 header("X-CMC_PRO_API_KEY", apiKey)
             }.body()
 
