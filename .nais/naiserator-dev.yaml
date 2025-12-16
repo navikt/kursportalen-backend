@@ -47,7 +47,10 @@ spec:
       external:
         - host: pro-api.coinmarketcap.com
   env:
-    - name: ENV
-      value: prod
-    - name: COINMARKETCAP_APIKEY
-      value: "{{ COINMARKETCAP_APIKEY }}"
+    - name: Deploy to NAIS
+      uses: nais/deploy/actions/deploy@v2
+      env:
+        CLUSTER: dev-gcp
+        RESOURCE: .nais/naiserator-dev.yaml
+        IMAGE: ${{ needs.build-push-image.outputs.image }}
+        VAR: COINMARKETCAP_APIKEY=${{ secrets.COINMARKETCAP_APIKEY }}
