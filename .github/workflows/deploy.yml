@@ -53,4 +53,4 @@ jobs:
           CLUSTER: dev-gcp
           RESOURCE: .nais/naiserator-dev.yaml
           IMAGE: ${{ needs.build-push-image.outputs.image }}
-          VAR: FREECRYPTO_API_KEY=${{ secrets.FREECRYPTO_API_KEY }}
+          VAR: COINMARKETCAP_APIKEY=${{ secrets.COINMARKETCAP_APIKEY }}
