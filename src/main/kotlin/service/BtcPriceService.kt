@@ -9,6 +9,7 @@ import io.ktor.client.request.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+
 class BtcPriceService {
 
     private val apiKey = System.getenv("COINMARKETCAP_APIKEY") ?: ""
@@ -24,9 +25,14 @@ class BtcPriceService {
         val data: Map<String, Coin>
     )
 
+
+
+
+
     @Serializable
     private data class Coin(
         val symbol: String,
+        val lastUpdated: String,
         val quote: Quote
     )
 
@@ -37,7 +43,8 @@ class BtcPriceService {
 
     @Serializable
     private data class Usd(
-        val price: Double
+        val price: Double,
+        val percentChange1h: Double
     )
 
     suspend fun getBtcPrice(): Crypto {
@@ -56,7 +63,9 @@ class BtcPriceService {
 
         return Crypto(
             symbol = btc.symbol,
-            last = btc.quote.USD.price
+            last = btc.quote.USD.price,
+            lastUpdated = btc.lastUpdated,
+            percentChange1h = btc.quote.USD.percentChange1h
         )
     }
 }
