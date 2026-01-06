@@ -7,6 +7,7 @@ import io.ktor.client.engine.apache.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -25,13 +26,10 @@ class BtcPriceService {
         val data: Map<String, Coin>
     )
 
-
-
-
-
     @Serializable
     private data class Coin(
         val symbol: String,
+        @SerialName("last_updated")
         val lastUpdated: String,
         val quote: Quote
     )
@@ -44,6 +42,7 @@ class BtcPriceService {
     @Serializable
     private data class Usd(
         val price: Double,
+        @SerialName("percent_change_1h")
         val percentChange1h: Double
     )
 

@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 data class Crypto(
     val symbol: String,
     val last: Double,
+    @SerialName("last_updated")
     val lastUpdated: String,
+    @SerialName("percent_change_1h")
     val percentChange1h: Double
 )
