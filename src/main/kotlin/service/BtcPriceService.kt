@@ -1,14 +1,14 @@
 package com.example.service
 
 import com.example.model.Crypto
+import com.example.model.ApiResponse
+import com.example.model.PriceRequest
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.apache.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 class BtcPriceService {
@@ -21,44 +21,18 @@ class BtcPriceService {
         }
     }
 
-    @Serializable
-    private data class ApiResponse(
-        val data: Map<String, Coin>
-    )
-
-    @Serializable
-    private data class Coin(
-        val symbol: String,
-        @SerialName("last_updated")
-        val lastUpdated: String,
-        val quote: Quote
-    )
-
-    @Serializable
-    private data class Quote(
-        val USD: Usd
-    )
-
-    @Serializable
-    private data class Usd(
-        val price: Double,
-        @SerialName("percent_change_1h")
-        val percentChange1h: Double
-    )
 
     suspend fun getBtcPrice(): Crypto {
         if (apiKey.isBlank()) {
             throw IllegalStateException("Missing COINMARKETCAP_APIKEY")
         }
 
-        val response: ApiResponse =
-            client.get("https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest") {
-                url { parameters.append("symbol", "BTC") }
-                header("X-CMC_PRO_API_KEY", apiKey)
-            }.body()
+        val response: ApiResponse = client.get("https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest") {
+            url { parameters.append("symbol", "BTC") }
+            header("X-CMC_PRO_API_KEY", apiKey)
+        }.body()
 
-        val btc = response.data["BTC"]
-            ?: throw IllegalStateException("BTC not found in response")
+        val btc = response.data["BTC"] ?: throw IllegalStateException("BTC not found in response")
 
         return Crypto(
             symbol = btc.symbol,
@@ -67,4 +41,26 @@ class BtcPriceService {
             percentChange1h = btc.quote.USD.percentChange1h
         )
     }
+
+
+    suspend fun getPrice(request: PriceRequest): Crypto {
+        if (apiKey.isBlank()) {
+            throw IllegalStateException("Missing COINMARKETCAP_APIKEY")
+        }
+
+        val response: ApiResponse = client.get("https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest") {
+            url { parameters.append("symbol", { request.ticker }.toString()) }
+            header("X-CMC_PRO_API_KEY", apiKey)
+        }.body()
+
+        val price = response.data[""] ?: throw IllegalStateException("Price not found")
+
+        return Crypto(
+            symbol = price.symbol,
+            last = price.quote.USD.price,
+            lastUpdated = price.lastUpdated,
+            percentChange1h = price.quote.USD.percentChange1h
+        )
+    }
 }
+
