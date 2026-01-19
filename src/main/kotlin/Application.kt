@@ -1,5 +1,6 @@
 package com.example
 
+import com.example.api.configureRouting
 import com.example.config.ApplicationState
 import com.example.config.commonConfig
 import com.example.config.internalNaisRoutes
