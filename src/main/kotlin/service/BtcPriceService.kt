@@ -49,11 +49,11 @@ class BtcPriceService {
         }
 
         val response: ApiResponse = client.get("https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest") {
-            url { parameters.append("symbol", { request.ticker }.toString()) }
+            url { parameters.append("symbol", request.ticker) }
             header("X-CMC_PRO_API_KEY", apiKey)
         }.body()
 
-        val price = response.data[""] ?: throw IllegalStateException("Price not found")
+        val price = response.data[request.ticker] ?: throw IllegalStateException("Price not found")
 
         return Crypto(
             symbol = price.symbol,
