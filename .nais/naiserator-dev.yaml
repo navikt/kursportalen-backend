@@ -46,6 +46,8 @@ spec:
     outbound:
       external:
         - host: pro-api.coinmarketcap.com
+        - host: fapi.binance.com
+        - host: ws-fapi.binance.com
   env:
     - name: ENV
       value: prod
