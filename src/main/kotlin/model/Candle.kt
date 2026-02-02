@@ -5,28 +5,32 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Candle(
-    val t: Long,
-    val o: String,
-    val h: String,
-    val l: String,
-    val c: String,
-    val v: String
+    @SerialName("time")
+    val time: Long,
+    @SerialName("open")
+    val open: String,
+    @SerialName("high")
+    val high: String,
+    @SerialName("low")
+    val low: String,
+    @SerialName("close")
+    val close: String,
+    @SerialName("volume")
+    val volume: String
 )
 
 @Serializable
 data class CandleUpdate(
     val symbol: String,
     val interval: String,
-    @SerialName("eventTime")
     val eventTime: Long,
-    val t: Long,
-    @SerialName("T")
+    @SerialName("startTime")
+    val startTime: Long,
     val closeTime: Long,
-    val o: String,
-    val h: String,
-    val l: String,
-    val c: String,
-    val v: String,
-    @SerialName("isClosed")
+    val open: String,
+    val high: String,
+    val low: String,
+    val close: String,
+    val volume: String,
     val isClosed: Boolean
 )
