@@ -13,7 +13,6 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -36,14 +35,14 @@ class BinanceMarketService(
 
     private var btcJob: Job? = null
 
-    private fun content(obj: Map<String, JsonElement>, key: String): String? =
+    private fun str(obj: Map<String, kotlinx.serialization.json.JsonElement>, key: String): String? =
         obj[key]?.jsonPrimitive?.content
 
-    private fun long(obj: Map<String, JsonElement>, key: String): Long? =
-        content(obj, key)?.toLongOrNull()
+    private fun long(obj: Map<String, kotlinx.serialization.json.JsonElement>, key: String): Long? =
+        str(obj, key)?.toLongOrNull()
 
-    private fun bool(obj: Map<String, JsonElement>, key: String): Boolean? =
-        content(obj, key)?.let { it == "true" || it == "1" }
+    private fun bool(obj: Map<String, kotlinx.serialization.json.JsonElement>, key: String): Boolean? =
+        str(obj, key)?.let { it == "true" || it == "1" }
 
     fun startBtcDailyStream() {
         if (btcJob?.isActive == true) return
@@ -52,28 +51,26 @@ class BinanceMarketService(
             while (isActive) {
                 try {
                     wsClient.webSocket(
-                        method = HttpMethod.Get,
-                        host = "stream.binance.com",
-                        port = 9443,
-                        path = "/ws/btcusdt@kline_1d"
+                        method = HttpMethod.Get, host = "stream.binance.com", port = 9443, path = "/ws/btcusdt@kline_1d"
                     ) {
                         for (frame in incoming) {
                             val text = (frame as? Frame.Text)?.readText() ?: continue
                             val root = json.parseToJsonElement(text).jsonObject
-                            if (content(root, "e") != "kline") continue
+
+                            if (str(root, "e") != "kline") continue
 
                             val eventTime = long(root, "E") ?: System.currentTimeMillis()
-                            val symbol = content(root, "s") ?: "BTCUSDT"
+                            val symbol = str(root, "s") ?: "BTCUSDT"
                             val k = root["k"]?.jsonObject ?: continue
 
-                            val startTime = long(k, "t") ?: continue
-                            val closeTime = long(k, "T") ?: continue
-                            val interval = content(k, "i") ?: "1d"
-                            val open = content(k, "o") ?: continue
-                            val high = content(k, "h") ?: continue
-                            val low = content(k, "l") ?: continue
-                            val close = content(k, "c") ?: continue
-                            val volume = content(k, "v") ?: "0"
+                            val t = long(k, "t") ?: continue
+                            val T = long(k, "T") ?: continue
+                            val interval = str(k, "i") ?: "1d"
+                            val o = str(k, "o") ?: continue
+                            val h = str(k, "h") ?: continue
+                            val l = str(k, "l") ?: continue
+                            val c = str(k, "c") ?: continue
+                            val v = str(k, "v") ?: "0"
                             val isClosed = bool(k, "x") ?: false
 
                             _btcDailyFlow.tryEmit(
@@ -81,15 +78,16 @@ class BinanceMarketService(
                                     symbol = symbol,
                                     interval = interval,
                                     eventTime = eventTime,
-                                    startTime = startTime,
-                                    closeTime = closeTime,
-                                    open = open,
-                                    high = high,
-                                    low = low,
-                                    close = close,
-                                    volume = volume,
+                                    t = t,
+                                    closeTime = T,
+                                    o = o,
+                                    h = h,
+                                    l = l,
+                                    c = c,
+                                    v = v,
                                     isClosed = isClosed
                                 )
+
                             )
                         }
                     }
@@ -116,21 +114,15 @@ class BinanceMarketService(
 
         return arr.mapNotNull { row ->
             val r = row.jsonArray
-
-            val time = r.getOrNull(0)?.jsonPrimitive?.content?.toLongOrNull() ?: return@mapNotNull null
-            val open = r.getOrNull(1)?.jsonPrimitive?.content ?: return@mapNotNull null
-            val high = r.getOrNull(2)?.jsonPrimitive?.content ?: return@mapNotNull null
-            val low = r.getOrNull(3)?.jsonPrimitive?.content ?: return@mapNotNull null
-            val close = r.getOrNull(4)?.jsonPrimitive?.content ?: return@mapNotNull null
-            val volume = r.getOrNull(5)?.jsonPrimitive?.content ?: "0"
+            val t = r.getOrNull(0)?.jsonPrimitive?.content?.toLongOrNull() ?: return@mapNotNull null
+            val o = r.getOrNull(1)?.jsonPrimitive?.content ?: return@mapNotNull null
+            val h = r.getOrNull(2)?.jsonPrimitive?.content ?: return@mapNotNull null
+            val l = r.getOrNull(3)?.jsonPrimitive?.content ?: return@mapNotNull null
+            val c = r.getOrNull(4)?.jsonPrimitive?.content ?: return@mapNotNull null
+            val v = r.getOrNull(5)?.jsonPrimitive?.content ?: "0"
 
             Candle(
-                time = time,
-                open = open,
-                high = high,
-                low = low,
-                close = close,
-                volume = volume
+                t = t, o = o, h = h, l = l, c = c, v = v
             )
         }
     }
