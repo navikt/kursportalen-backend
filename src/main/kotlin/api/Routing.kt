@@ -1,8 +1,8 @@
 package com.example.api
 
+import com.example.model.Crypto
 import com.example.model.PriceRequest
 import com.example.service.BinanceMarketService
-import com.example.service.CryptoService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.request.receive
@@ -10,27 +10,21 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
-fun Application.configureRouting() {
-    val cryptoService = CryptoService()
-
-    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val binanceMarketService = BinanceMarketService(appScope)
-    binanceMarketService.startBtcDailyStream()
-
+fun Application.configureRouting(
+    priceProvider: suspend (PriceRequest) -> Crypto,
+    binanceMarketService: BinanceMarketService
+) {
     val json = Json { ignoreUnknownKeys = true }
 
     routing {
         route("/api/v1") {
             post("/price") {
                 val request = call.receive<PriceRequest>()
-                val response = cryptoService.getPrice(request)
+                val response = priceProvider(request)
                 call.respond(HttpStatusCode.OK, response)
             }
 
