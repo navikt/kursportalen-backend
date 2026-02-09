@@ -48,4 +48,32 @@ class PriceRouteTest {
         assertEquals("2026-02-04T12:34:56Z", body.lastUpdated)
         assertEquals(1.23, body.percentChange1h)
     }
+
+    @Test
+    fun `POST api v1 price without ticker returns bad request`() = testApplication {
+        application {
+            module(
+                priceProvider = { _ ->
+                    Crypto(
+                        symbol = "BTC",
+                        last = 1.0,
+                        lastUpdated = "2026-02-04T12:34:56Z",
+                        percentChange1h = 0.0
+                    )
+                },
+                startBinanceStream = false
+            )
+        }
+
+        val client = createClient {
+            install(ContentNegotiation) { json() }
+        }
+
+        val response = client.post("/api/v1/price") {
+            contentType(ContentType.Application.Json)
+            setBody("{}")
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
 }
