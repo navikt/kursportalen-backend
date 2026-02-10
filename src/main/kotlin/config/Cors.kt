@@ -8,9 +8,14 @@ fun Application.configureCors() {
     install(CORS) {
         allowHost("localhost:5173", schemes = listOf("http"))
         allowHost("kursportalen.ansatt.dev.nav.no", schemes = listOf("https"))
-        allowHost("kursportalen.intern.dev.nav.no", schemes = listOf("https"))
 
         allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Options)
+
         allowHeader(HttpHeaders.ContentType)
+        allowHeader(HttpHeaders.Authorization)
+
+        allowCredentials = false
     }
 }
