@@ -39,12 +39,10 @@ spec:
       runtime: java
   gcp:
     sqlInstances:
-      - name: kursportalendb
-        type: POSTGRES_15
+      - type: POSTGRES_17
         tier: db-f1-micro
         databases:
-          - name: kursportalenux
-            envVarPrefix: DB
+          - name: kursportalen-db
   accessPolicy:
     inbound:
       rules:
