@@ -11,10 +11,13 @@ fun Application.configureCors() {
 
         allowMethod(HttpMethod.Get)
         allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
         allowMethod(HttpMethod.Options)
 
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
+        allowHeader("X-User-Id")
 
         allowCredentials = false
     }
