@@ -23,6 +23,7 @@ dependencies {
     implementation(libs.hikari)
     implementation(libs.postgres)
     implementation(libs.flyway.core)
+    implementation(libs.flyway.database.postgresql)
     implementation(libs.ktor.client.apache)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.client.websockets)
