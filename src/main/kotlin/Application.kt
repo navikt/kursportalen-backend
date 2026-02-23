@@ -12,6 +12,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
+import java.util.concurrent.atomic.AtomicReference
 
 fun main() {
     embeddedServer(Netty, port = 8080, module = Application::module).start(wait = true)
@@ -19,8 +20,21 @@ fun main() {
 
 fun Application.module() {
     val applicationState = ApplicationState()
-    val dataSource = DatabaseFactory.initDataSourceWithRetry()
-    val favoriteTickerRepository = FavoriteTickerRepository(dataSource)
+    val favoriteTickerRepositoryRef = AtomicReference<FavoriteTickerRepository?>(null)
+
+    Thread {
+        try {
+            val dataSource = DatabaseFactory.initDataSourceWithRetry()
+            favoriteTickerRepositoryRef.set(FavoriteTickerRepository(dataSource))
+            log.info("Favorite ticker repository initialized")
+        } catch (error: Throwable) {
+            log.error("Failed to initialize favorite ticker repository", error)
+        }
+    }.apply {
+        name = "favorite-ticker-db-init"
+        isDaemon = true
+        start()
+    }
 
     install(WebSockets)
 
@@ -29,6 +43,6 @@ fun Application.module() {
 
     routing {
         internalNaisRoutes(applicationState)
-        configureRouting(favoriteTickerRepository)
+        configureRouting { favoriteTickerRepositoryRef.get() }
     }
 }

@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 fun Application.configureRouting(
-    favoriteTickerRepository: FavoriteTickerRepository
+    favoriteTickerRepositoryProvider: () -> FavoriteTickerRepository?
 ) {
     val cryptoService = CryptoService()
 
@@ -41,6 +41,12 @@ fun Application.configureRouting(
             }
 
             get("/user/favorite-ticker") {
+                val favoriteTickerRepository = favoriteTickerRepositoryProvider()
+                if (favoriteTickerRepository == null) {
+                    call.respond(HttpStatusCode.ServiceUnavailable, "Favorite ticker storage is not ready")
+                    return@get
+                }
+
                 val userId = call.userIdOrNull()
                 if (userId == null) {
                     call.respond(HttpStatusCode.Unauthorized)
@@ -56,6 +62,12 @@ fun Application.configureRouting(
             }
 
             put("/user/favorite-ticker") {
+                val favoriteTickerRepository = favoriteTickerRepositoryProvider()
+                if (favoriteTickerRepository == null) {
+                    call.respond(HttpStatusCode.ServiceUnavailable, "Favorite ticker storage is not ready")
+                    return@put
+                }
+
                 val userId = call.userIdOrNull()
                 if (userId == null) {
                     call.respond(HttpStatusCode.Unauthorized)
@@ -74,6 +86,12 @@ fun Application.configureRouting(
             }
 
             delete("/user/favorite-ticker") {
+                val favoriteTickerRepository = favoriteTickerRepositoryProvider()
+                if (favoriteTickerRepository == null) {
+                    call.respond(HttpStatusCode.ServiceUnavailable, "Favorite ticker storage is not ready")
+                    return@delete
+                }
+
                 val userId = call.userIdOrNull()
                 if (userId == null) {
                     call.respond(HttpStatusCode.Unauthorized)
