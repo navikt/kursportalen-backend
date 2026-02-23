@@ -38,6 +38,33 @@ object DatabaseFactory {
             .migrate()
     }
 
+    fun initDataSourceWithRetry(
+        env: Map<String, String> = System.getenv(),
+        attempts: Int = 20,
+        delaySeconds: Long = 3
+    ): DataSource {
+        var lastError: Throwable? = null
+
+        repeat(attempts) { index ->
+            val attempt = index + 1
+            try {
+                val dataSource = createDataSourceOrThrow(env)
+                runMigrations(dataSource)
+                return dataSource
+            } catch (error: Throwable) {
+                lastError = error
+                System.err.println(
+                    "Database init attempt $attempt/$attempts failed: ${error.message}"
+                )
+                if (attempt < attempts) {
+                    Thread.sleep(delaySeconds * 1000)
+                }
+            }
+        }
+
+        error("Database initialization failed after $attempts attempts: ${lastError?.message}")
+    }
+
     private fun resolveConfig(env: Map<String, String>): DbConfig? {
         val directUrl = env["JDBC_DATABASE_URL"] ?: env["DATABASE_URL"]
         if (directUrl != null) {

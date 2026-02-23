@@ -19,8 +19,7 @@ fun main() {
 
 fun Application.module() {
     val applicationState = ApplicationState()
-    val dataSource = DatabaseFactory.createDataSourceOrThrow()
-    DatabaseFactory.runMigrations(dataSource)
+    val dataSource = DatabaseFactory.initDataSourceWithRetry()
     val favoriteTickerRepository = FavoriteTickerRepository(dataSource)
 
     install(WebSockets)
