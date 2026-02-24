@@ -3,6 +3,7 @@ package com.example.config
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
+import java.io.File
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -178,30 +179,26 @@ object DatabaseFactory {
     private fun sanitizeQueryString(query: String?): String {
         if (query.isNullOrBlank()) return ""
 
-        val blockedKeys = setOf("sslkey", "sslcert", "sslrootcert")
-        var hasSslMode = false
-        val kept = query
+        val rewritten = query
             .split("&")
             .mapNotNull { part ->
                 val idx = part.indexOf('=')
                 val rawKey = if (idx >= 0) part.substring(0, idx) else part
                 val key = URLDecoder.decode(rawKey, StandardCharsets.UTF_8).lowercase()
-                if (key in blockedKeys) return@mapNotNull null
 
-                if (key == "sslmode") {
-                    hasSslMode = true
-                    return@mapNotNull "sslmode=require"
+                if (idx >= 0 && key == "sslkey") {
+                    val value = part.substring(idx + 1)
+                    val decodedValue = URLDecoder.decode(value, StandardCharsets.UTF_8)
+                    val pk8Candidate = decodedValue.replace("key.pem", "key.pk8")
+                    if (pk8Candidate != decodedValue && File(pk8Candidate).exists()) {
+                        return@mapNotNull "${part.substring(0, idx + 1)}$pk8Candidate"
+                    }
                 }
                 part
             }
-            .toMutableList()
 
-        if (!hasSslMode) {
-            kept.add("sslmode=require")
-        }
-
-        if (kept.isEmpty()) return ""
-        return "?${kept.joinToString("&")}"
+        if (rewritten.isEmpty()) return ""
+        return "?${rewritten.joinToString("&")}"
     }
 
     private fun extractUsernameFromUrl(url: String): String? =
