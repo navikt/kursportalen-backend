@@ -6,8 +6,10 @@ import org.flywaydb.core.Flyway
 import javax.sql.DataSource
 
 object DatabaseFactory {
+    private const val expectedDatabaseName = "kursportalen-db"
+
     private val naisDatabaseKey = Regex(
-        pattern = "^NAIS_DATABASE_(.+)_(JDBC_URL|URL|HOST|PORT|DATABASE|USERNAME|PASSWORD)$"
+        pattern = "^NAIS_DATABASE_(.+)_(JDBC_URL|URL|HOST|PORT|DATABASE|USER|USERNAME|PASSWORD)$"
     )
 
     fun createDataSourceOrThrow(env: Map<String, String> = System.getenv()): DataSource {
@@ -56,6 +58,9 @@ object DatabaseFactory {
                 System.err.println(
                     "Database init attempt $attempt/$attempts failed: ${error.message}"
                 )
+                rootCause(error)?.let { cause ->
+                    System.err.println("Root cause: ${cause.javaClass.simpleName}: ${cause.message}")
+                }
                 if (attempt < attempts) {
                     Thread.sleep(delaySeconds * 1000)
                 }
@@ -84,11 +89,15 @@ object DatabaseFactory {
             grouped.getOrPut(group) { mutableMapOf() }[property] = value
         }
 
-        val preferred = grouped["KURSPORTALEN_DB"]
-        val ordered = buildList {
-            if (preferred != null) add(preferred)
-            addAll(grouped.values.filterNot { it === preferred })
-        }
+        val ordered = grouped.entries
+            .sortedWith(
+                compareByDescending<Map.Entry<String, MutableMap<String, String>>> { entry ->
+                    entry.value["DATABASE"] == expectedDatabaseName
+                }.thenByDescending { entry ->
+                    entry.key.contains("KURSPORTALEN", ignoreCase = true)
+                }
+            )
+            .map { it.value }
 
         return ordered.firstNotNullOfOrNull { values ->
             val jdbcUrl = values["JDBC_URL"]
@@ -96,10 +105,20 @@ object DatabaseFactory {
                 ?: buildJdbcUrl(values)
             if (jdbcUrl == null) return@firstNotNullOfOrNull null
 
+            val username = values["USERNAME"] ?: values["USER"]
+            val password = values["PASSWORD"]
+            if (username.isNullOrBlank() || password.isNullOrBlank()) {
+                return@firstNotNullOfOrNull null
+            }
+
+            System.err.println(
+                "Selected NAIS DB config for database='${values["DATABASE"] ?: "unknown"}' host='${values["HOST"] ?: "n/a"}'"
+            )
+
             DbConfig(
                 jdbcUrl = jdbcUrl,
-                username = values["USERNAME"],
-                password = values["PASSWORD"]
+                username = username,
+                password = password
             )
         }
     }
@@ -110,6 +129,16 @@ object DatabaseFactory {
         val database = values["DATABASE"] ?: return null
         return "jdbc:postgresql://$host:$port/$database"
     }
+}
+
+private fun rootCause(error: Throwable): Throwable? {
+    var current: Throwable? = error
+    var last: Throwable? = null
+    while (current != null) {
+        last = current
+        current = current.cause
+    }
+    return last
 }
 
 private data class DbConfig(
