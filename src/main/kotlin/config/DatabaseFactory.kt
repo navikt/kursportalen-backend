@@ -179,6 +179,7 @@ object DatabaseFactory {
         if (query.isNullOrBlank()) return ""
 
         val blockedKeys = setOf("sslkey", "sslcert", "sslrootcert")
+        var hasSslMode = false
         val kept = query
             .split("&")
             .mapNotNull { part ->
@@ -186,8 +187,18 @@ object DatabaseFactory {
                 val rawKey = if (idx >= 0) part.substring(0, idx) else part
                 val key = URLDecoder.decode(rawKey, StandardCharsets.UTF_8).lowercase()
                 if (key in blockedKeys) return@mapNotNull null
+
+                if (key == "sslmode") {
+                    hasSslMode = true
+                    return@mapNotNull "sslmode=require"
+                }
                 part
             }
+            .toMutableList()
+
+        if (!hasSslMode) {
+            kept.add("sslmode=require")
+        }
 
         if (kept.isEmpty()) return ""
         return "?${kept.joinToString("&")}"
