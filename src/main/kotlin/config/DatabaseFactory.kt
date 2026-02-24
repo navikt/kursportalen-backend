@@ -4,6 +4,8 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import javax.sql.DataSource
 
 object DatabaseFactory {
@@ -141,7 +143,7 @@ object DatabaseFactory {
     }
 
     private fun normalizeJdbcUrl(url: String): String {
-        if (url.startsWith("jdbc:postgresql://")) return url
+        if (url.startsWith("jdbc:postgresql://")) return sanitizeJdbcQuery(url)
         if (url.startsWith("jdbc:")) return url
 
         if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
@@ -152,11 +154,43 @@ object DatabaseFactory {
             val dbName = path.removePrefix("/").ifBlank {
                 error("Could not parse database name from URL")
             }
-            val query = if (uri.query.isNullOrBlank()) "" else "?${uri.query}"
+            val query = sanitizeQueryString(uri.query)
             return "jdbc:postgresql://$host:$port/$dbName$query"
         }
 
         return "jdbc:$url"
+    }
+
+    private fun sanitizeJdbcQuery(jdbcUrl: String): String {
+        val prefix = "jdbc:postgresql://"
+        if (!jdbcUrl.startsWith(prefix)) return jdbcUrl
+
+        val withoutPrefix = jdbcUrl.removePrefix(prefix)
+        val queryStart = withoutPrefix.indexOf('?')
+        if (queryStart == -1) return jdbcUrl
+
+        val base = withoutPrefix.substring(0, queryStart)
+        val query = withoutPrefix.substring(queryStart + 1)
+        val sanitized = sanitizeQueryString(query)
+        return "$prefix$base$sanitized"
+    }
+
+    private fun sanitizeQueryString(query: String?): String {
+        if (query.isNullOrBlank()) return ""
+
+        val blockedKeys = setOf("sslkey", "sslcert", "sslrootcert")
+        val kept = query
+            .split("&")
+            .mapNotNull { part ->
+                val idx = part.indexOf('=')
+                val rawKey = if (idx >= 0) part.substring(0, idx) else part
+                val key = URLDecoder.decode(rawKey, StandardCharsets.UTF_8).lowercase()
+                if (key in blockedKeys) return@mapNotNull null
+                part
+            }
+
+        if (kept.isEmpty()) return ""
+        return "?${kept.joinToString("&")}"
     }
 
     private fun extractUsernameFromUrl(url: String): String? =
