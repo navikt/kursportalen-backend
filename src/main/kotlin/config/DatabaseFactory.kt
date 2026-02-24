@@ -3,6 +3,7 @@ package com.example.config
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
+import java.net.URI
 import javax.sql.DataSource
 
 object DatabaseFactory {
@@ -73,11 +74,19 @@ object DatabaseFactory {
     private fun resolveConfig(env: Map<String, String>): DbConfig? {
         val directUrl = env["JDBC_DATABASE_URL"] ?: env["DATABASE_URL"]
         if (directUrl != null) {
-            val jdbcUrl = if (directUrl.startsWith("jdbc:")) directUrl else "jdbc:$directUrl"
+            val normalized = normalizeJdbcUrl(directUrl)
+            val usernameFromUrl = extractUsernameFromUrl(directUrl)
+            val passwordFromUrl = extractPasswordFromUrl(directUrl)
             return DbConfig(
-                jdbcUrl = jdbcUrl,
-                username = env["JDBC_DATABASE_USERNAME"] ?: env["DATABASE_USERNAME"] ?: env["DB_USERNAME"],
-                password = env["JDBC_DATABASE_PASSWORD"] ?: env["DATABASE_PASSWORD"] ?: env["DB_PASSWORD"]
+                jdbcUrl = normalized,
+                username = env["JDBC_DATABASE_USERNAME"]
+                    ?: env["DATABASE_USERNAME"]
+                    ?: env["DB_USERNAME"]
+                    ?: usernameFromUrl,
+                password = env["JDBC_DATABASE_PASSWORD"]
+                    ?: env["DATABASE_PASSWORD"]
+                    ?: env["DB_PASSWORD"]
+                    ?: passwordFromUrl
             )
         }
 
@@ -101,7 +110,8 @@ object DatabaseFactory {
 
         return ordered.firstNotNullOfOrNull { values ->
             val jdbcUrl = values["JDBC_URL"]
-                ?: values["URL"]?.let { if (it.startsWith("jdbc:")) it else "jdbc:$it" }
+                ?.let(::normalizeJdbcUrl)
+                ?: values["URL"]?.let(::normalizeJdbcUrl)
                 ?: buildJdbcUrl(values)
             if (jdbcUrl == null) return@firstNotNullOfOrNull null
 
@@ -129,6 +139,44 @@ object DatabaseFactory {
         val database = values["DATABASE"] ?: return null
         return "jdbc:postgresql://$host:$port/$database"
     }
+
+    private fun normalizeJdbcUrl(url: String): String {
+        if (url.startsWith("jdbc:postgresql://")) return url
+        if (url.startsWith("jdbc:")) return url
+
+        if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
+            val uri = URI(url)
+            val host = uri.host ?: error("Could not parse database host from URL")
+            val port = if (uri.port == -1) 5432 else uri.port
+            val path = uri.path ?: ""
+            val dbName = path.removePrefix("/").ifBlank {
+                error("Could not parse database name from URL")
+            }
+            val query = if (uri.query.isNullOrBlank()) "" else "?${uri.query}"
+            return "jdbc:postgresql://$host:$port/$dbName$query"
+        }
+
+        return "jdbc:$url"
+    }
+
+    private fun extractUsernameFromUrl(url: String): String? =
+        runCatching {
+            if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
+                URI(url).userInfo?.substringBefore(':')
+            } else {
+                null
+            }
+        }.getOrNull()
+
+    private fun extractPasswordFromUrl(url: String): String? =
+        runCatching {
+            if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
+                val userInfo = URI(url).userInfo ?: return@runCatching null
+                if (userInfo.contains(":")) userInfo.substringAfter(':') else null
+            } else {
+                null
+            }
+        }.getOrNull()
 }
 
 private fun rootCause(error: Throwable): Throwable? {
