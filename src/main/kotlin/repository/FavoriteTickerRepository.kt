@@ -10,7 +10,7 @@ class FavoriteTickerRepository(
             connection.prepareStatement(
                 """
                 SELECT ticker
-                FROM user_favorite_ticker
+                FROM user_favorite
                 WHERE user_id = ?
                 """.trimIndent()
             ).use { statement ->
@@ -25,7 +25,7 @@ class FavoriteTickerRepository(
         dataSource.connection.use { connection ->
             connection.prepareStatement(
                 """
-                INSERT INTO user_favorite_ticker (user_id, ticker)
+                INSERT INTO user_favorite (user_id, ticker)
                 VALUES (?, ?)
                 ON CONFLICT (user_id)
                 DO UPDATE SET
@@ -44,7 +44,7 @@ class FavoriteTickerRepository(
         dataSource.connection.use { connection ->
             connection.prepareStatement(
                 """
-                DELETE FROM user_favorite_ticker
+                DELETE FROM user_favorite
                 WHERE user_id = ?
                 """.trimIndent()
             ).use { statement ->
