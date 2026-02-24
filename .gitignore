@@ -30,3 +30,4 @@ out/
 
 ### Custom ###
 .kotlin
+node_modules/
