@@ -27,8 +27,8 @@ object DatabaseFactory {
             username = config.username
             password = config.password
             driverClassName = "org.postgresql.Driver"
-            maximumPoolSize = 5
-            minimumIdle = 1
+            maximumPoolSize = 2
+            minimumIdle = 0
             isAutoCommit = true
             transactionIsolation = "TRANSACTION_READ_COMMITTED"
         }
@@ -40,6 +40,8 @@ object DatabaseFactory {
         Flyway.configure()
             .dataSource(dataSource)
             .locations("classpath:db/migration")
+            .baselineOnMigrate(true)
+            .baselineVersion("0")
             .load()
             .migrate()
     }
@@ -53,8 +55,10 @@ object DatabaseFactory {
 
         repeat(attempts) { index ->
             val attempt = index + 1
+            var dataSourceToClose: DataSource? = null
             try {
                 val dataSource = createDataSourceOrThrow(env)
+                dataSourceToClose = dataSource
                 runMigrations(dataSource)
                 return dataSource
             } catch (error: Throwable) {
@@ -65,6 +69,8 @@ object DatabaseFactory {
                 rootCause(error)?.let { cause ->
                     System.err.println("Root cause: ${cause.javaClass.simpleName}: ${cause.message}")
                 }
+                // Prevent exhausting DB slots across retries.
+                (dataSourceToClose as? HikariDataSource)?.close()
                 if (attempt < attempts) {
                     Thread.sleep(delaySeconds * 1000)
                 }
