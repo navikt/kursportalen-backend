@@ -3,11 +3,18 @@ package com.example.config
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
+import java.io.File
 import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import javax.sql.DataSource
 
 object DatabaseFactory {
-    private val naisKey = Regex("^NAIS_DATABASE_(.+)_(JDBC_URL|URL|HOST|PORT|DATABASE|USER|USERNAME|PASSWORD)$")
+    private const val expectedDatabaseName = "kursportalen-db"
+
+    private val naisKey = Regex(
+        "^NAIS_DATABASE_(.+)_(JDBC_URL|URL|HOST|PORT|DATABASE|USER|USERNAME|PASSWORD)$"
+    )
 
     fun createDataSourceOrThrow(env: Map<String, String> = System.getenv()): DataSource {
         val config = resolveConfig(env) ?: error(
@@ -18,8 +25,9 @@ object DatabaseFactory {
             jdbcUrl = config.jdbcUrl
             username = config.username
             password = config.password
-            maximumPoolSize = 5
-            minimumIdle = 1
+            driverClassName = "org.postgresql.Driver"
+            maximumPoolSize = 2
+            minimumIdle = 0
             isAutoCommit = true
             transactionIsolation = "TRANSACTION_READ_COMMITTED"
         }
@@ -54,6 +62,9 @@ object DatabaseFactory {
             } catch (t: Throwable) {
                 lastError = t
                 System.err.println("Database init attempt $attempt/$attempts failed: ${t.message}")
+                rootCause(t)?.let { cause ->
+                    System.err.println("Root cause: ${cause.javaClass.simpleName}: ${cause.message}")
+                }
                 (ds as? HikariDataSource)?.close()
                 if (attempt < attempts) Thread.sleep(delaySeconds * 1000)
             }
@@ -88,7 +99,17 @@ object DatabaseFactory {
             grouped.getOrPut(group) { mutableMapOf() }[prop] = value
         }
 
-        return grouped.values.firstNotNullOfOrNull { v ->
+        val ordered = grouped.entries
+            .sortedWith(
+                compareByDescending<Map.Entry<String, MutableMap<String, String>>> { entry ->
+                    entry.value["DATABASE"] == expectedDatabaseName
+                }.thenByDescending { entry ->
+                    entry.key.contains("KURSPORTALEN", ignoreCase = true)
+                }
+            )
+            .map { it.value }
+
+        return ordered.firstNotNullOfOrNull { v ->
             val jdbcUrl = v["JDBC_URL"]
                 ?.let(::normalizeJdbcUrl)
                 ?: v["URL"]?.let(::normalizeJdbcUrl)
@@ -98,6 +119,10 @@ object DatabaseFactory {
             val username = v["USERNAME"] ?: v["USER"]
             val password = v["PASSWORD"]
             if (username.isNullOrBlank() || password.isNullOrBlank()) return@firstNotNullOfOrNull null
+
+            System.err.println(
+                "Selected NAIS DB config for database='${v["DATABASE"] ?: "unknown"}' host='${v["HOST"] ?: "n/a"}'"
+            )
 
             DbConfig(jdbcUrl, username, password)
         }
@@ -111,7 +136,7 @@ object DatabaseFactory {
     }
 
     private fun normalizeJdbcUrl(url: String): String {
-        if (url.startsWith("jdbc:postgresql://")) return url
+        if (url.startsWith("jdbc:postgresql://")) return sanitizeJdbcQuery(url)
         if (url.startsWith("jdbc:")) return url
 
         if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
@@ -121,11 +146,50 @@ object DatabaseFactory {
             val dbName = (uri.path ?: "").removePrefix("/").ifBlank {
                 error("Could not parse database name from URL")
             }
-            val query = uri.query?.takeIf { it.isNotBlank() }?.let { "?$it" } ?: ""
+            val query = sanitizeQueryString(uri.query)
             return "jdbc:postgresql://$host:$port/$dbName$query"
         }
 
         return "jdbc:$url"
+    }
+
+    private fun sanitizeJdbcQuery(jdbcUrl: String): String {
+        val prefix = "jdbc:postgresql://"
+        if (!jdbcUrl.startsWith(prefix)) return jdbcUrl
+
+        val withoutPrefix = jdbcUrl.removePrefix(prefix)
+        val queryStart = withoutPrefix.indexOf('?')
+        if (queryStart == -1) return jdbcUrl
+
+        val base = withoutPrefix.substring(0, queryStart)
+        val query = withoutPrefix.substring(queryStart + 1)
+        val sanitized = sanitizeQueryString(query)
+        return "$prefix$base$sanitized"
+    }
+
+    private fun sanitizeQueryString(query: String?): String {
+        if (query.isNullOrBlank()) return ""
+
+        val rewritten = query
+            .split("&")
+            .mapNotNull { part ->
+                val idx = part.indexOf('=')
+                val rawKey = if (idx >= 0) part.substring(0, idx) else part
+                val key = URLDecoder.decode(rawKey, StandardCharsets.UTF_8).lowercase()
+
+                if (idx >= 0 && key == "sslkey") {
+                    val value = part.substring(idx + 1)
+                    val decodedValue = URLDecoder.decode(value, StandardCharsets.UTF_8)
+                    val pk8Candidate = decodedValue.replace("key.pem", "key.pk8")
+                    if (pk8Candidate != decodedValue && File(pk8Candidate).exists()) {
+                        return@mapNotNull "${part.substring(0, idx + 1)}$pk8Candidate"
+                    }
+                }
+                part
+            }
+
+        if (rewritten.isEmpty()) return ""
+        return "?${rewritten.joinToString("&")}"
     }
 
     private fun extractUserPassFromUrl(url: String): Pair<String?, String?> =
@@ -146,4 +210,14 @@ object DatabaseFactory {
         val username: String,
         val password: String
     )
+}
+
+private fun rootCause(error: Throwable): Throwable? {
+    var current: Throwable? = error
+    var last: Throwable? = null
+    while (current != null) {
+        last = current
+        current = current.cause
+    }
+    return last
 }
