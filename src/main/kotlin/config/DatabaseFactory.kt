@@ -3,32 +3,23 @@ package com.example.config
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
-import java.io.File
 import java.net.URI
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 import javax.sql.DataSource
 
 object DatabaseFactory {
-    private const val expectedDatabaseName = "kursportalen-db"
-
-    private val naisDatabaseKey = Regex(
-        pattern = "^NAIS_DATABASE_(.+)_(JDBC_URL|URL|HOST|PORT|DATABASE|USER|USERNAME|PASSWORD)$"
-    )
+    private val naisKey = Regex("^NAIS_DATABASE_(.+)_(JDBC_URL|URL|HOST|PORT|DATABASE|USER|USERNAME|PASSWORD)$")
 
     fun createDataSourceOrThrow(env: Map<String, String> = System.getenv()): DataSource {
-        val config = resolveConfig(env)
-            ?: error(
-                "No database configuration found. Expected DATABASE_URL/JDBC_DATABASE_URL or NAIS_DATABASE_* variables."
-            )
+        val config = resolveConfig(env) ?: error(
+            "No database configuration found. Expected DATABASE_URL/JDBC_DATABASE_URL or NAIS_DATABASE_* variables."
+        )
 
         val hikariConfig = HikariConfig().apply {
             jdbcUrl = config.jdbcUrl
             username = config.username
             password = config.password
-            driverClassName = "org.postgresql.Driver"
-            maximumPoolSize = 2
-            minimumIdle = 0
+            maximumPoolSize = 5
+            minimumIdle = 1
             isAutoCommit = true
             transactionIsolation = "TRANSACTION_READ_COMMITTED"
         }
@@ -55,25 +46,16 @@ object DatabaseFactory {
 
         repeat(attempts) { index ->
             val attempt = index + 1
-            var dataSourceToClose: DataSource? = null
+            var ds: DataSource? = null
             try {
-                val dataSource = createDataSourceOrThrow(env)
-                dataSourceToClose = dataSource
-                runMigrations(dataSource)
-                return dataSource
-            } catch (error: Throwable) {
-                lastError = error
-                System.err.println(
-                    "Database init attempt $attempt/$attempts failed: ${error.message}"
-                )
-                rootCause(error)?.let { cause ->
-                    System.err.println("Root cause: ${cause.javaClass.simpleName}: ${cause.message}")
-                }
-                // Prevent exhausting DB slots across retries.
-                (dataSourceToClose as? HikariDataSource)?.close()
-                if (attempt < attempts) {
-                    Thread.sleep(delaySeconds * 1000)
-                }
+                ds = createDataSourceOrThrow(env)
+                runMigrations(ds)
+                return ds
+            } catch (t: Throwable) {
+                lastError = t
+                System.err.println("Database init attempt $attempt/$attempts failed: ${t.message}")
+                (ds as? HikariDataSource)?.close()
+                if (attempt < attempts) Thread.sleep(delaySeconds * 1000)
             }
         }
 
@@ -83,62 +65,41 @@ object DatabaseFactory {
     private fun resolveConfig(env: Map<String, String>): DbConfig? {
         val directUrl = env["JDBC_DATABASE_URL"] ?: env["DATABASE_URL"]
         if (directUrl != null) {
-            val normalized = normalizeJdbcUrl(directUrl)
-            val usernameFromUrl = extractUsernameFromUrl(directUrl)
-            val passwordFromUrl = extractPasswordFromUrl(directUrl)
-            return DbConfig(
-                jdbcUrl = normalized,
-                username = env["JDBC_DATABASE_USERNAME"]
-                    ?: env["DATABASE_USERNAME"]
-                    ?: env["DB_USERNAME"]
-                    ?: usernameFromUrl,
-                password = env["JDBC_DATABASE_PASSWORD"]
-                    ?: env["DATABASE_PASSWORD"]
-                    ?: env["DB_PASSWORD"]
-                    ?: passwordFromUrl
-            )
+            val jdbcUrl = normalizeJdbcUrl(directUrl)
+            val (uFromUrl, pFromUrl) = extractUserPassFromUrl(directUrl)
+            val username = env["JDBC_DATABASE_USERNAME"]
+                ?: env["DATABASE_USERNAME"]
+                ?: env["DB_USERNAME"]
+                ?: uFromUrl
+            val password = env["JDBC_DATABASE_PASSWORD"]
+                ?: env["DATABASE_PASSWORD"]
+                ?: env["DB_PASSWORD"]
+                ?: pFromUrl
+
+            if (username.isNullOrBlank() || password.isNullOrBlank()) return null
+            return DbConfig(jdbcUrl, username, password)
         }
 
         val grouped = mutableMapOf<String, MutableMap<String, String>>()
         env.forEach { (key, value) ->
-            val match = naisDatabaseKey.matchEntire(key) ?: return@forEach
-            val group = match.groupValues[1]
-            val property = match.groupValues[2]
-            grouped.getOrPut(group) { mutableMapOf() }[property] = value
+            val m = naisKey.matchEntire(key) ?: return@forEach
+            val group = m.groupValues[1]
+            val prop = m.groupValues[2]
+            grouped.getOrPut(group) { mutableMapOf() }[prop] = value
         }
 
-        val ordered = grouped.entries
-            .sortedWith(
-                compareByDescending<Map.Entry<String, MutableMap<String, String>>> { entry ->
-                    entry.value["DATABASE"] == expectedDatabaseName
-                }.thenByDescending { entry ->
-                    entry.key.contains("KURSPORTALEN", ignoreCase = true)
-                }
-            )
-            .map { it.value }
-
-        return ordered.firstNotNullOfOrNull { values ->
-            val jdbcUrl = values["JDBC_URL"]
+        return grouped.values.firstNotNullOfOrNull { v ->
+            val jdbcUrl = v["JDBC_URL"]
                 ?.let(::normalizeJdbcUrl)
-                ?: values["URL"]?.let(::normalizeJdbcUrl)
-                ?: buildJdbcUrl(values)
-            if (jdbcUrl == null) return@firstNotNullOfOrNull null
+                ?: v["URL"]?.let(::normalizeJdbcUrl)
+                ?: buildJdbcUrl(v)
+                ?: return@firstNotNullOfOrNull null
 
-            val username = values["USERNAME"] ?: values["USER"]
-            val password = values["PASSWORD"]
-            if (username.isNullOrBlank() || password.isNullOrBlank()) {
-                return@firstNotNullOfOrNull null
-            }
+            val username = v["USERNAME"] ?: v["USER"]
+            val password = v["PASSWORD"]
+            if (username.isNullOrBlank() || password.isNullOrBlank()) return@firstNotNullOfOrNull null
 
-            System.err.println(
-                "Selected NAIS DB config for database='${values["DATABASE"] ?: "unknown"}' host='${values["HOST"] ?: "n/a"}'"
-            )
-
-            DbConfig(
-                jdbcUrl = jdbcUrl,
-                username = username,
-                password = password
-            )
+            DbConfig(jdbcUrl, username, password)
         }
     }
 
@@ -150,95 +111,39 @@ object DatabaseFactory {
     }
 
     private fun normalizeJdbcUrl(url: String): String {
-        if (url.startsWith("jdbc:postgresql://")) return sanitizeJdbcQuery(url)
+        if (url.startsWith("jdbc:postgresql://")) return url
         if (url.startsWith("jdbc:")) return url
 
         if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
             val uri = URI(url)
             val host = uri.host ?: error("Could not parse database host from URL")
             val port = if (uri.port == -1) 5432 else uri.port
-            val path = uri.path ?: ""
-            val dbName = path.removePrefix("/").ifBlank {
+            val dbName = (uri.path ?: "").removePrefix("/").ifBlank {
                 error("Could not parse database name from URL")
             }
-            val query = sanitizeQueryString(uri.query)
+            val query = uri.query?.takeIf { it.isNotBlank() }?.let { "?$it" } ?: ""
             return "jdbc:postgresql://$host:$port/$dbName$query"
         }
 
         return "jdbc:$url"
     }
 
-    private fun sanitizeJdbcQuery(jdbcUrl: String): String {
-        val prefix = "jdbc:postgresql://"
-        if (!jdbcUrl.startsWith(prefix)) return jdbcUrl
-
-        val withoutPrefix = jdbcUrl.removePrefix(prefix)
-        val queryStart = withoutPrefix.indexOf('?')
-        if (queryStart == -1) return jdbcUrl
-
-        val base = withoutPrefix.substring(0, queryStart)
-        val query = withoutPrefix.substring(queryStart + 1)
-        val sanitized = sanitizeQueryString(query)
-        return "$prefix$base$sanitized"
-    }
-
-    private fun sanitizeQueryString(query: String?): String {
-        if (query.isNullOrBlank()) return ""
-
-        val rewritten = query
-            .split("&")
-            .mapNotNull { part ->
-                val idx = part.indexOf('=')
-                val rawKey = if (idx >= 0) part.substring(0, idx) else part
-                val key = URLDecoder.decode(rawKey, StandardCharsets.UTF_8).lowercase()
-
-                if (idx >= 0 && key == "sslkey") {
-                    val value = part.substring(idx + 1)
-                    val decodedValue = URLDecoder.decode(value, StandardCharsets.UTF_8)
-                    val pk8Candidate = decodedValue.replace("key.pem", "key.pk8")
-                    if (pk8Candidate != decodedValue && File(pk8Candidate).exists()) {
-                        return@mapNotNull "${part.substring(0, idx + 1)}$pk8Candidate"
-                    }
-                }
-                part
-            }
-
-        if (rewritten.isEmpty()) return ""
-        return "?${rewritten.joinToString("&")}"
-    }
-
-    private fun extractUsernameFromUrl(url: String): String? =
+    private fun extractUserPassFromUrl(url: String): Pair<String?, String?> =
         runCatching {
             if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
-                URI(url).userInfo?.substringBefore(':')
+                val userInfo = URI(url).userInfo
+                val user = userInfo?.substringBefore(':')
+                val pass = userInfo?.substringAfter(':', missingDelimiterValue = "")
+                    ?.takeIf { it.isNotBlank() }
+                user to pass
             } else {
-                null
+                null to null
             }
-        }.getOrNull()
+        }.getOrElse { null to null }
 
-    private fun extractPasswordFromUrl(url: String): String? =
-        runCatching {
-            if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
-                val userInfo = URI(url).userInfo ?: return@runCatching null
-                if (userInfo.contains(":")) userInfo.substringAfter(':') else null
-            } else {
-                null
-            }
-        }.getOrNull()
+    private data class DbConfig(
+        val jdbcUrl: String,
+        val username: String,
+        val password: String
+    )
 }
-
-private fun rootCause(error: Throwable): Throwable? {
-    var current: Throwable? = error
-    var last: Throwable? = null
-    while (current != null) {
-        last = current
-        current = current.cause
-    }
-    return last
-}
-
-private data class DbConfig(
-    val jdbcUrl: String,
-    val username: String?,
-    val password: String?
-)
