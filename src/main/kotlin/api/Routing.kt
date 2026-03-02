@@ -1,5 +1,9 @@
 package com.example.api
 
+import com.example.config.userIdOrNull
+import com.example.model.FavoriteTickerRequest
+import com.example.model.FavoriteTickerResponse
+import com.example.repository.FavoriteTickerRepository
 import com.example.model.PriceRequest
 import com.example.service.BinanceMarketService
 import com.example.service.CryptoService
@@ -17,7 +21,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
-fun Application.configureRouting() {
+fun Application.configureRouting(
+    favoriteTickerRepositoryProvider: () -> FavoriteTickerRepository?
+) {
     val cryptoService = CryptoService()
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -32,6 +38,68 @@ fun Application.configureRouting() {
                 val request = call.receive<PriceRequest>()
                 val response = cryptoService.getPrice(request)
                 call.respond(HttpStatusCode.OK, response)
+            }
+
+            get("/user/favorite-ticker") {
+                val favoriteTickerRepository = favoriteTickerRepositoryProvider()
+                if (favoriteTickerRepository == null) {
+                    call.respond(HttpStatusCode.ServiceUnavailable, "Favorite ticker storage is not ready")
+                    return@get
+                }
+
+                val userId = call.userIdOrNull()
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized)
+                    return@get
+                }
+
+                val ticker = favoriteTickerRepository.findByUserId(userId)
+                if (ticker == null) {
+                    call.respond(HttpStatusCode.NoContent)
+                } else {
+                    call.respond(HttpStatusCode.OK, FavoriteTickerResponse(ticker))
+                }
+            }
+
+            put("/user/favorite-ticker") {
+                val favoriteTickerRepository = favoriteTickerRepositoryProvider()
+                if (favoriteTickerRepository == null) {
+                    call.respond(HttpStatusCode.ServiceUnavailable, "Favorite ticker storage is not ready")
+                    return@put
+                }
+
+                val userId = call.userIdOrNull()
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized)
+                    return@put
+                }
+
+                val request = call.receive<FavoriteTickerRequest>()
+                val ticker = request.ticker.trim().uppercase()
+                if (ticker.isBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Ticker cannot be blank")
+                    return@put
+                }
+
+                favoriteTickerRepository.upsert(userId, ticker)
+                call.respond(HttpStatusCode.NoContent)
+            }
+
+            delete("/user/favorite-ticker") {
+                val favoriteTickerRepository = favoriteTickerRepositoryProvider()
+                if (favoriteTickerRepository == null) {
+                    call.respond(HttpStatusCode.ServiceUnavailable, "Favorite ticker storage is not ready")
+                    return@delete
+                }
+
+                val userId = call.userIdOrNull()
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized)
+                    return@delete
+                }
+
+                favoriteTickerRepository.delete(userId)
+                call.respond(HttpStatusCode.NoContent)
             }
 
             get("/candles/btc") {
