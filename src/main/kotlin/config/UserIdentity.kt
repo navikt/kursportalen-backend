@@ -4,6 +4,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.server.application.ApplicationCall
 
 private val preferredHeaders = listOf(
+    "x-nav-ident",
     "x-forwarded-email",
     "x-forwarded-user",
     "x-forwarded-preferred-username",
@@ -20,7 +21,7 @@ fun ApplicationCall.userIdOrNull(): String? {
     val authorization = request.headers[HttpHeaders.Authorization] ?: return null
     if (!authorization.startsWith("Bearer ", ignoreCase = true)) return null
 
-    // Last fallback for local/dev scenarios where no identity headers are forwarded.
+
     val token = authorization.removePrefix("Bearer ").trim()
     return token.takeIf { it.isNotEmpty() }
 }
