@@ -1,10 +1,10 @@
 [versions]
-kotlin = "2.2.20"
-ktor = "3.3.1"
-logback = "1.4.14"
-hikari = "5.1.0"
-postgres = "42.7.8"
-flyway = "11.14.1"
+kotlin = "2.3.10"
+ktor = "3.4.0"
+logback = "1.5.32"
+hikari = "7.0.2"
+postgres = "42.7.10"
+flyway = "12.0.3"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
